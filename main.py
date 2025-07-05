@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Path, HTTPException
 import json
 
 def loadUsers():
@@ -18,8 +18,8 @@ def users ():
     return users
 
 @app.get("/user/{id}")
-def user (id: str):
+def user (id: str = Path(..., description="User ID", example="P001")):
     users = loadUsers()
     if id in users:
         return users[id]
-    return {"error": "User not found"}
+    raise HTTPException(status_code=404, detail="User not found")
