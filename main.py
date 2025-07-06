@@ -1,100 +1,86 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, computed_field
-from typing import Annotated, Literal, Optional
-import json
+from typing import Literal, Annotated
+import pickle
+import pandas as pd
 
-def load_users():
-    with open('users.json', 'r') as f:
-        users = json.load(f)
-    return users
-
-def save_user(data):
-    with open('users.json', 'w') as f:
-        json.dump(data, f)
+# import the ml model
+with open('model.pkl', 'rb') as f:
+    model = pickle.load(f)
 
 app = FastAPI()
 
-class User(BaseModel):
-    id: Annotated[str, Field(..., description='ID of the user', examples=['P001'])]
-    first_name: Annotated[str, Field(..., description='First name of the user')]
-    last_name: Annotated[str, Field(..., description='Last name of the user')]
-    age: Annotated[int, Field(..., gt=18, lt=65, description='Age of the user')]
-    gender: Annotated[Literal['male', 'female', 'others'], Field(..., description='Gender of the user')]
+tier_1_cities = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune"]
+tier_2_cities = [
+    "Jaipur", "Chandigarh", "Indore", "Lucknow", "Patna", "Ranchi", "Visakhapatnam", "Coimbatore",
+    "Bhopal", "Nagpur", "Vadodara", "Surat", "Rajkot", "Jodhpur", "Raipur", "Amritsar", "Varanasi",
+    "Agra", "Dehradun", "Mysore", "Jabalpur", "Guwahati", "Thiruvananthapuram", "Ludhiana", "Nashik",
+    "Allahabad", "Udaipur", "Aurangabad", "Hubli", "Belgaum", "Salem", "Vijayawada", "Tiruchirappalli",
+    "Bhavnagar", "Gwalior", "Dhanbad", "Bareilly", "Aligarh", "Gaya", "Kozhikode", "Warangal",
+    "Kolhapur", "Bilaspur", "Jalandhar", "Noida", "Guntur", "Asansol", "Siliguri"
+]
+
+# pydantic model to validate incoming data
+class UserInput(BaseModel):
+
+    age: Annotated[int, Field(..., gt=0, lt=120, description='Age of the user')]
+    weight: Annotated[float, Field(..., gt=0, description='Weight of the user')]
+    height: Annotated[float, Field(..., gt=0, lt=2.5, description='Height of the user')]
+    income_lpa: Annotated[float, Field(..., gt=0, description='Annual salary of the user in lpa')]
+    smoker: Annotated[bool, Field(..., description='Is user a smoker')]
+    city: Annotated[str, Field(..., description='The city that the user belongs to')]
+    occupation: Annotated[Literal['retired', 'freelancer', 'student', 'government_job',
+       'business_owner', 'unemployed', 'private_job'], Field(..., description='Occupation of the user')]
 
     @computed_field
     @property
-    def full_name(self) -> str:
-        return self.first_name + " " + self.last_name
+    def bmi(self) -> float:
+        return self.weight/(self.height**2)
 
-class UserUpdate(BaseModel):
-    first_name: Annotated[Optional[str], Field(default=None)]
-    last_name: Annotated[Optional[str], Field(default=None)]
-    age: Annotated[Optional[int], Field(default=None, gt=0)]
-    gender: Annotated[Optional[Literal['male', 'female']], Field(default=None)]
+    @computed_field
+    @property
+    def lifestyle_risk(self) -> str:
+        if self.smoker and self.bmi > 30:
+            return "high"
+        elif self.smoker or self.bmi > 27:
+            return "medium"
+        else:
+            return "low"
 
+    @computed_field
+    @property
+    def age_group(self) -> str:
+        if self.age < 25:
+            return "young"
+        elif self.age < 45:
+            return "adult"
+        elif self.age < 60:
+            return "middle_aged"
+        return "senior"
 
-@app.get("/")
-def hello():
-    return {'message':'Hello FastAPI'}
+    @computed_field
+    @property
+    def city_tier(self) -> int:
+        if self.city in tier_1_cities:
+            return 1
+        elif self.city in tier_2_cities:
+            return 2
+        else:
+            return 3
 
-@app.post('/create')
-def create_user(user: User):
+@app.post('/predict')
+def predict_premium(data: UserInput):
 
-    data = load_users()
+    input_df = pd.DataFrame([{
+        'bmi': data.bmi,
+        'age_group': data.age_group,
+        'lifestyle_risk': data.lifestyle_risk,
+        'city_tier': data.city_tier,
+        'income_lpa': data.income_lpa,
+        'occupation': data.occupation
+    }])
 
-    if user.id in data:
-        raise HTTPException(status_code=400, detail='User already exists')
+    prediction = model.predict(input_df)[0]
 
-    # Convert pydantic object into python dict
-    data[user.id] = user.model_dump(exclude={'id'})
-
-    save_user(data)
-
-    return JSONResponse(status_code=201, content={'message':'User created successfully'})
-
-@app.put('/edit/{id}')
-def update_user(id: str, user_update: UserUpdate):
-
-    data = load_users()
-
-    if id not in data:
-        raise HTTPException(status_code=404, detail='User not found')
-
-    # Extract user to update
-    existing_user = data[id]
-
-    # Convert pydantic obj into python dict and allow only the set (edited) fields
-    updated_user = user_update.model_dump(exclude_unset=True)
-
-    for key, value in updated_user.items():
-        existing_user[key] = value
-
-    existing_user['id'] = id
-
-    # Convert the python dict again into pydantic obj to let the fields ("full_name") recalculated
-    user_pydandic_obj = User(**existing_user)
-
-    # Convert pydantic obj back into python dict and exclude "id"
-    existing_user = user_pydandic_obj.model_dump(exclude={'id'})
-
-    # Add updated dict into users data
-    data[id] = existing_user
-
-    save_user(data)
-
-    return JSONResponse(status_code=200, content={'message':'User updated'})
-
-@app.delete('/delete/{id}')
-def delete_user(id: str):
-
-    data = load_users()
-
-    if id not in data:
-        raise HTTPException(status_code=404, detail='User not found')
-
-    del data[id]
-
-    save_user(data)
-
-    return JSONResponse(status_code=200, content={'message':'User deleted'})
+    return JSONResponse(status_code=200, content={'predicted_category': prediction})

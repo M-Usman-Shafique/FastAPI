@@ -1,9 +1,14 @@
 fastapi
 uvicorn
 pydantic
-email-validator
+email_validator
+scikit-learn==1.6.1
+pandas
+requests
+streamlit
+watchdog
 
-
-
+# python3 -m venv .venv
 # source .venv/bin/activate
 # uvicorn main:app --reload
+# streamlit run ui.py
