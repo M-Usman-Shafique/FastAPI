@@ -1,32 +1,22 @@
-from pydantic import BaseModel
-class Address(BaseModel):
-    city: str
-    state: str
-    pin: int
+from pydantic import BaseModel, EmailStr
 class User(BaseModel):
     name: str
+    email:EmailStr
     age: int
-    address: Address
-
-address_dict = {
-    "city": "Lahore",
-    "state": "Punjab",
-    "pin": 54000
-}
-
-address1 = Address(**address_dict)
+    gender: str = "Male"
 
 user_dict = {
     "name": "Ali",
+    "email": "ali@test.com",
     "age": 30,
-    "address": address1
     }
 
 user1 = User(**user_dict)
 
-def show_user(user: User):
-   print(user.name)
-   print(user.age)
-   print(user.address.city)
-
-show_user(user1)
+temp1 = user1.model_dump() # all fields
+temp2 = user1.model_dump(include={"name", "email"}) 
+temp3 = user1.model_dump(exclude={"name", "email"})
+print(temp1)
+print(temp2)
+print(temp3)
+print(type(temp1))
