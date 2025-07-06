@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import List, Dict, Optional
 
 # Pydantic class
@@ -10,19 +10,12 @@ class User(BaseModel):
     skills: List[str]
     address: Dict[str, str]
 
-    @field_validator("email")
-    @classmethod
-    def email_validator(cls, value):
-        valid_TLD = ["com", "org", "net"]
-        domain_name = value.split(".")[-1]
+    @model_validator(mode="after")
+    def validate_AI_skill(cls, model):
+        if model.age > 30 and "AI" not in model.skills:
+            raise ValueError("Users older than 30 must have AI skill")
+        return model
 
-        if domain_name not in valid_TLD:
-            raise ValueError("Invalid email.")
-
-    @field_validator("name")
-    @classmethod
-    def transform_name(cls, value):
-        return value.title()
 
 
 # Raw data
