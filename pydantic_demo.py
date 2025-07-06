@@ -1,29 +1,34 @@
-from pydantic import BaseModel, EmailStr, AnyUrl, Field
-from typing import List, Dict, Optional, Annotated
+from pydantic import BaseModel, EmailStr, field_validator
+from typing import List, Dict, Optional
 
 # Pydantic class
 class User(BaseModel):
-    name: Annotated[
-        str,
-        Field(
-        min_length=3,
-        max_length=25,
-        title="Name of the user",
-        description="Give the name of the user between 3 to 25 chars"),
-        ]
+    name: str
     email: EmailStr
-    url: AnyUrl
-    age: int = Field(gt=18, lt=60, strict=True) # Type coercion disabled
+    age: int
     married: Optional[bool] = None
-    skills: List[str] = Field(max_length=5)
+    skills: List[str]
     address: Dict[str, str]
+
+    @field_validator("email")
+    @classmethod
+    def email_validator(cls, value):
+        valid_TLD = ["com", "org", "net"]
+        domain_name = value.split(".")[-1]
+
+        if domain_name not in valid_TLD:
+            raise ValueError("Invalid email.")
+
+    @field_validator("name")
+    @classmethod
+    def transform_name(cls, value):
+        return value.title()
 
 
 # Raw data
 user_dict = {
-    "name": "Ali",
+    "name": "ali",
     "email": "ali@test.com",
-    "url": "https://linkendin.com",
     "age": 30,
     "address": {"city": "Lahore", "country": "Pakistan"},
     "skills": ["Java", "Python", "Ruby"]
