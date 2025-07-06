@@ -1,44 +1,50 @@
-from fastapi import FastAPI, Path, HTTPException, Query
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, computed_field
+from typing import Annotated, Literal
 import json
 
 def load_users():
-    with open("users.json", "r") as f:
+    with open('users.json', 'r') as f:
         users = json.load(f)
     return users
 
+def save_user(data):
+    with open('users.json', 'w') as f:
+        json.dump(data, f)
+
 app = FastAPI()
+
+class User(BaseModel):
+
+    id: Annotated[str, Field(..., description='ID of the user', examples=['P001'])]
+    first_name: Annotated[str, Field(..., description='First name of the user')]
+    last_name: Annotated[str, Field(..., description='Last name of the user')]
+    age: Annotated[int, Field(..., gt=18, lt=65, description='Age of the user')]
+    gender: Annotated[Literal['male', 'female', 'others'], Field(..., description='Gender of the user')]
+
+    @computed_field
+    @property
+    def full_name(self) -> str:
+        return self.first_name + " " + self.last_name
+
 
 @app.get("/")
 def hello():
-    return {"message": "Hello FastAPI"}
+    return {'message':'Hello FastAPI'}
 
-@app.get("/users")
-def users ():
-    users = load_users()
-    return users
-
-@app.get('/sort')
-def sort_users(sort_by: str = Query(..., description='Sort by height, weight or bmi'), order: str = Query('asc', description='sort in asc or dsc order')):
-
-    valid_fields = ['height', 'weight', 'bmi']
-
-    if sort_by not in valid_fields:
-        raise HTTPException(status_code=400, detail=f'Invalid field. Select from {valid_fields}')
-
-    if order not in ['asc', 'dsc']:
-        raise HTTPException(status_code=400, detail='Invalid order. Select between asc and dsc')
+@app.post('/create')
+def create_user(user: User):
 
     data = load_users()
 
-    sort_order = True if order=='dsc' else False
+    if user.id in data:
+        raise HTTPException(status_code=400, detail='User already exists')
 
-    sorted_data = sorted(data.values(), key=lambda x: x.get(sort_by, 0), reverse=sort_order)
+    # Convert pydantic object into python dict
+    data[user.id] = user.model_dump(exclude={'id'})
 
-    return sorted_data
+    save_user(data)
 
-@app.get("/user/{id}")
-def user (id: str = Path(..., description="User ID", example="P001")):
-    users = load_users()
-    if id in users:
-        return users[id]
-    raise HTTPException(status_code=404, detail="User not found")
+    return JSONResponse(status_code=201, content={'message':'User created successfully'})
+

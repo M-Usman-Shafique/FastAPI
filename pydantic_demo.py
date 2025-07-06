@@ -13,9 +13,9 @@ user_dict = {
 
 user1 = User(**user_dict)
 
-temp1 = user1.model_dump() # all fields
-temp2 = user1.model_dump(include={"name", "email"}) 
-temp3 = user1.model_dump(exclude={"name", "email"})
+temp1 = user1.model_dump_json() # all fields
+temp2 = user1.model_dump_json(include={"name", "email"})
+temp3 = user1.model_dump_json(exclude={"name", "email"})
 print(temp1)
 print(temp2)
 print(temp3)
