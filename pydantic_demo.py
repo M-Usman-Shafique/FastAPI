@@ -1,43 +1,32 @@
-from pydantic import BaseModel, EmailStr, computed_field
-from typing import List, Dict, Optional
-
-# Pydantic class
+from pydantic import BaseModel
+class Address(BaseModel):
+    city: str
+    state: str
+    pin: int
 class User(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
+    name: str
     age: int
-    married: Optional[bool] = None
-    skills: List[str]
-    address: Dict[str, str]
+    address: Address
 
-    @computed_field
-    @property
-    def full_name(self) -> str:
-        return self.first_name + " " + self.last_name
+address_dict = {
+    "city": "Lahore",
+    "state": "Punjab",
+    "pin": 54000
+}
 
+address1 = Address(**address_dict)
 
-
-# Raw data
 user_dict = {
-    "first_name": "Ali",
-    "last_name": "Khan",
-    "email": "ali@test.com",
+    "name": "Ali",
     "age": 30,
-    "address": {"city": "Lahore", "country": "Pakistan"},
-    "skills": ["Java", "Python", "Ruby"]
+    "address": address1
     }
 
-# Pydantic object
 user1 = User(**user_dict)
 
 def show_user(user: User):
-   print(user.full_name)
-   print(user.email)
+   print(user.name)
    print(user.age)
-   print(user.address['city'])
-   for skill in user.skills:
-        print(skill)
+   print(user.address.city)
 
-# Pass pydantic obj to function
 show_user(user1)
