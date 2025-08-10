@@ -8,6 +8,7 @@ requests
 streamlit
 watchdog
 python-dotenv
+sqlmodel
 
 # python3 -m venv .venv
 # source .venv/bin/activate
