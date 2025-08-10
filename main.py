@@ -1,6 +1,12 @@
-from fastapi import FastAPI, Depends
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from routes.user import router as user_router
-from services.require_user import require_user
+from config.sqlite import init_db
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(
     title="FastAPI",
@@ -9,10 +15,11 @@ app = FastAPI(
                 {"name": "Users", "description": "User Management"},
     ],
     version="v1",
+    lifespan=lifespan
 )
 
 @app.get("/")
 def root():
     return {'message':'Hello FastAPI'}
 
-app.include_router(user_router, prefix="/api", dependencies=[Depends(require_user)])
+app.include_router(user_router, prefix="/api", dependencies=[])
